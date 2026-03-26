@@ -265,11 +265,12 @@ _build-with-docker: # Internal target for Docker-based cross-compilation
 		exit 1; \
 	fi
 
-docker-image: build-ui ## Build Docker image
+docker-image: build-ui ## Build Docker image (LOCAL=1 to use Dockerfile.local)
 	@echo "$(GREEN)Building Docker image...$(NC)"
 	$(eval GIT_SHA=$(shell git rev-parse --short HEAD))
-	@docker build -f transports/Dockerfile -t bifrost -t bifrost:$(GIT_SHA) -t bifrost:latest .
-	@echo "$(GREEN)Docker image built: bifrost, bifrost:$(GIT_SHA), bifrost:latest$(NC)"
+	$(eval DOCKERFILE=$(if $(LOCAL),transports/Dockerfile.local,transports/Dockerfile))
+	@docker build -f $(DOCKERFILE) -t bifrost -t bifrost:$(GIT_SHA) -t bifrost:latest .
+	@echo "$(GREEN)Docker image built: bifrost, bifrost:$(GIT_SHA), bifrost:latest (using $(DOCKERFILE))$(NC)"
 
 docker-run: ## Run Docker container
 	@echo "$(GREEN)Running Docker container...$(NC)"

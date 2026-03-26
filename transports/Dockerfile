@@ -48,14 +48,8 @@ RUN go build \
 RUN test -f /app/main || (echo "Build failed" && exit 1)
 
 # --- Runtime Stage: Minimal runtime image ---
-FROM alpine:3.23.3
+FROM bifrosthq/dhi-alpine-base:3.22-fips_bifrost-v27032026
 WORKDIR /app
-
-# Install runtime dependencies for CGO-enabled binary
-# musl: C standard library (required for CGO binaries)
-# libgcc: GCC runtime library
-# ca-certificates: For HTTPS connections
-RUN apk add --no-cache musl libgcc ca-certificates wget
 
 # Create data directory and set up user
 COPY --from=builder /app/main .
@@ -96,10 +90,6 @@ USER appuser
 # Declare volume for data persistence
 VOLUME ["/app/data"]
 EXPOSE $APP_PORT
-
-# Health check for container status monitoring
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 -O /dev/null http://127.0.0.1:${APP_PORT}/health || exit 1
 
 # Use entrypoint script that handles volume permissions and argument processing
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
