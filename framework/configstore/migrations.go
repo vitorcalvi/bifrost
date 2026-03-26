@@ -344,6 +344,9 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 	if err := migrationAddKeyBlacklistedModelsJSONColumn(ctx, db); err != nil {
 		return err
 	}
+	if err := migrationAddChainRuleColumnToRoutingRules(ctx, db); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -5304,6 +5307,39 @@ func migrationAddKeyBlacklistedModelsJSONColumn(ctx context.Context, db *gorm.DB
 	}})
 	if err := m.Migrate(); err != nil {
 		return fmt.Errorf("error running add_key_blacklisted_models_json_column migration: %s", err.Error())
+	}
+	return nil
+}
+
+// migrationAddChainRuleColumnToRoutingRules adds chain_rule to routing_rules.
+// When true, the routing engine re-evaluates the full rule set after this rule matches,
+// using the resolved provider/model as the new context input.
+func migrationAddChainRuleColumnToRoutingRules(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_chain_rule_column_to_routing_rules",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if !mg.HasColumn(&tables.TableRoutingRule{}, "chain_rule") {
+				if err := mg.AddColumn(&tables.TableRoutingRule{}, "chain_rule"); err != nil {
+					return fmt.Errorf("failed to add chain_rule column: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if mg.HasColumn(&tables.TableRoutingRule{}, "chain_rule") {
+				if err := mg.DropColumn(&tables.TableRoutingRule{}, "chain_rule"); err != nil {
+					return fmt.Errorf("failed to drop chain_rule column: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_chain_rule_column_to_routing_rules migration: %s", err.Error())
 	}
 	return nil
 }

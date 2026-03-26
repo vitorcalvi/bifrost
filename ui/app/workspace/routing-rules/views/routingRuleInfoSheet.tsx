@@ -179,6 +179,11 @@ export function RoutingRuleInfoSheet({ rule, open, onOpenChange }: Props) {
 								<Badge variant={rule.enabled ? "success" : "secondary"} className="px-1.5 py-0 text-[10px]">
 									{rule.enabled ? "Enabled" : "Disabled"}
 								</Badge>
+								{rule.chain_rule && (
+									<Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+										Chain Rule
+									</Badge>
+								)}
 							</div>
 							{rule.description && <p className="text-muted-foreground mt-1 text-sm">{rule.description}</p>}
 						</div>

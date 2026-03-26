@@ -980,6 +980,13 @@ func GenerateRoutingRuleHash(r tables.TableRoutingRule) (string, error) {
 		hash.Write(data)
 	}
 
+	// Hash ChainRule
+	if r.ChainRule {
+		hash.Write([]byte("chain_rule:true"))
+	} else {
+		hash.Write([]byte("chain_rule:false"))
+	}
+
 	// Hash Scope
 	hash.Write([]byte(r.Scope))
 
