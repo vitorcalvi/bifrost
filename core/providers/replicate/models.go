@@ -52,7 +52,7 @@ func ToBifrostListModelsResponse(
 			bifrostModel := schemas.Model{
 				ID:         string(providerKey) + "/" + deploymentID,
 				Name:       modelName,
-				Deployment: modelName,
+				Alias: modelName,
 				OwnedBy:    schemas.Ptr(deployment.Owner),
 				Created:    created,
 			}

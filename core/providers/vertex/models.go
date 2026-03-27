@@ -84,15 +84,15 @@ func formatDeploymentName(alias string) string {
 
 // findDeploymentMatch finds a matching deployment value in the deployments map.
 // Returns the deployment value and alias if found, empty strings otherwise.
-func findDeploymentMatch(deployments map[string]string, customModelID string) (deploymentValue, alias string) {
+func findDeploymentMatch(aliases map[string]string, customModelID string) (deploymentValue, alias string) {
 	// Check exact match by deployment value
-	for aliasKey, depValue := range deployments {
+	for aliasKey, depValue := range aliases {
 		if depValue == customModelID {
 			return depValue, aliasKey
 		}
 	}
 	// Check exact match by alias/key
-	if deployment, ok := deployments[customModelID]; ok {
+	if deployment, ok := aliases[customModelID]; ok {
 		return deployment, customModelID
 	}
 	return "", ""
@@ -113,7 +113,7 @@ func findDeploymentMatch(deployments map[string]string, customModelID string) (d
 // - If allowedModels is empty, all models are allowed
 // - If allowedModels is non-empty, only models/deployments with keys in allowedModels are included
 // - Deployments map is used to match model IDs to aliases and filter accordingly
-func (response *VertexListModelsResponse) ToBifrostListModelsResponse(allowedModels schemas.WhiteList, blacklistedModels schemas.BlackList, deployments map[string]string, unfiltered bool) *schemas.BifrostListModelsResponse {
+func (response *VertexListModelsResponse) ToBifrostListModelsResponse(allowedModels schemas.WhiteList, blacklistedModels schemas.BlackList, aliases map[string]string, unfiltered bool) *schemas.BifrostListModelsResponse {
 	if response == nil {
 		return nil
 	}
@@ -122,7 +122,7 @@ func (response *VertexListModelsResponse) ToBifrostListModelsResponse(allowedMod
 		Data: make([]schemas.Model, 0, len(response.Models)),
 	}
 
-	if !unfiltered && (allowedModels.IsEmpty() && len(deployments) == 0 || blacklistedModels.IsBlockAll()) {
+	if !unfiltered && (allowedModels.IsEmpty() && len(aliases) == 0 || blacklistedModels.IsBlockAll()) {
 		return bifrostResponse
 	}
 
@@ -149,10 +149,10 @@ func (response *VertexListModelsResponse) ToBifrostListModelsResponse(allowedMod
 			var deploymentValue, deploymentAlias string
 			restrictAllowed := !unfiltered && allowedModels.IsRestricted()
 			shouldFilter := false
-			if restrictAllowed && len(deployments) > 0 {
+			if restrictAllowed && len(aliases) > 0 {
 				// Both lists are present: model must be in allowedModels AND deployments
 				// AND the deployment alias must also be in allowedModels
-				deploymentValue, deploymentAlias = findDeploymentMatch(deployments, customModelID)
+				deploymentValue, deploymentAlias = findDeploymentMatch(aliases, customModelID)
 				inDeployments := deploymentAlias != ""
 
 				// Check if deployment alias is also in allowedModels (direct string match)
@@ -166,9 +166,9 @@ func (response *VertexListModelsResponse) ToBifrostListModelsResponse(allowedMod
 			} else if restrictAllowed {
 				// Only allowedModels is present: filter if model is not in allowedModels
 				shouldFilter = !allowedModels.Contains(customModelID)
-			} else if !unfiltered && len(deployments) > 0 {
+			} else if !unfiltered && len(aliases) > 0 {
 				// Only deployments is present: filter if model is not in deployments
-				deploymentValue, deploymentAlias = findDeploymentMatch(deployments, customModelID)
+				deploymentValue, deploymentAlias = findDeploymentMatch(aliases, customModelID)
 				shouldFilter = deploymentValue == ""
 			}
 			// If both are empty (or allowedModels is unrestricted and no deployments), shouldFilter remains false
@@ -191,7 +191,7 @@ func (response *VertexListModelsResponse) ToBifrostListModelsResponse(allowedMod
 			// Set deployment info if matched via deployments
 			if deploymentValue != "" && deploymentAlias != "" {
 				modelEntry.ID = string(schemas.Vertex) + "/" + deploymentAlias
-				modelEntry.Deployment = schemas.Ptr(deploymentValue)
+				modelEntry.Alias = schemas.Ptr(deploymentValue)
 			}
 			bifrostResponse.Data = append(bifrostResponse.Data, modelEntry)
 			addedModelIDs[modelEntry.ID] = true
@@ -201,8 +201,8 @@ func (response *VertexListModelsResponse) ToBifrostListModelsResponse(allowedMod
 	restrictAllowed := !unfiltered && allowedModels.IsRestricted()
 
 	// Second pass: Backfill deployments that were not matched from the API response
-	if !unfiltered && len(deployments) > 0 {
-		for alias, deploymentValue := range deployments {
+	if !unfiltered && len(aliases) > 0 {
+		for alias, deploymentValue := range aliases {
 			// Check if model already exists in the list
 			modelID := string(schemas.Vertex) + "/" + alias
 			if addedModelIDs[modelID] {
@@ -218,9 +218,9 @@ func (response *VertexListModelsResponse) ToBifrostListModelsResponse(allowedMod
 
 			modelName := formatDeploymentName(alias)
 			modelEntry := schemas.Model{
-				ID:         modelID,
-				Name:       schemas.Ptr(modelName),
-				Deployment: schemas.Ptr(deploymentValue),
+				ID:    modelID,
+				Name:  schemas.Ptr(modelName),
+				Alias: schemas.Ptr(deploymentValue),
 			}
 
 			bifrostResponse.Data = append(bifrostResponse.Data, modelEntry)

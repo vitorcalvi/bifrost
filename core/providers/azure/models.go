@@ -27,17 +27,17 @@ func findMatchingAllowedModel(wl schemas.WhiteList, value string) string {
 	return ""
 }
 
-// findDeploymentMatch finds a matching deployment value in the deployments map,
+// findDeploymentMatch finds a matching deployment value in the aliases map,
 // considering both exact match and base model matches (ignoring version suffixes).
 // Returns the deployment value and alias if found, empty strings otherwise.
-func findDeploymentMatch(deployments map[string]string, modelID string) (deploymentValue, alias string) {
+func findDeploymentMatch(aliases map[string]string, modelID string) (deploymentValue, alias string) {
 	// Check exact match first (by alias/key)
-	if deployment, ok := deployments[modelID]; ok {
+	if deployment, ok := aliases[modelID]; ok {
 		return deployment, modelID
 	}
 
 	// Check exact match by deployment value
-	for aliasKey, depValue := range deployments {
+	for aliasKey, depValue := range aliases {
 		if depValue == modelID {
 			return depValue, aliasKey
 		}
@@ -45,7 +45,7 @@ func findDeploymentMatch(deployments map[string]string, modelID string) (deploym
 
 	// Additional layer: check base model matches (ignoring version suffixes)
 	// This handles cases where model versions differ but base model is the same
-	for aliasKey, deploymentValue := range deployments {
+	for aliasKey, deploymentValue := range aliases {
 		// Check if modelID's base matches deploymentValue's base
 		if schemas.SameBaseModel(deploymentValue, modelID) {
 			return deploymentValue, aliasKey
@@ -75,7 +75,7 @@ func matchesBlacklist(bl schemas.BlackList, modelID string) bool {
 	return false
 }
 
-func (response *AzureListModelsResponse) ToBifrostListModelsResponse(allowedModels schemas.WhiteList, blacklistedModels schemas.BlackList, deployments map[string]string, unfiltered bool) *schemas.BifrostListModelsResponse {
+func (response *AzureListModelsResponse) ToBifrostListModelsResponse(allowedModels schemas.WhiteList, blacklistedModels schemas.BlackList, aliases map[string]string, unfiltered bool) *schemas.BifrostListModelsResponse {
 	if response == nil {
 		return nil
 	}
@@ -84,7 +84,7 @@ func (response *AzureListModelsResponse) ToBifrostListModelsResponse(allowedMode
 		Data: make([]schemas.Model, 0, len(response.Data)),
 	}
 
-	if !unfiltered && (allowedModels.IsEmpty() && len(deployments) == 0 || blacklistedModels.IsBlockAll()) {
+	if !unfiltered && (allowedModels.IsEmpty() && len(aliases) == 0 || blacklistedModels.IsBlockAll()) {
 		return bifrostResponse
 	}
 
@@ -101,11 +101,11 @@ func (response *AzureListModelsResponse) ToBifrostListModelsResponse(allowedMode
 		// Empty lists mean "allow all" for that dimension
 		// Check considering base model matches (ignoring version suffixes)
 		shouldFilter := false
-		if restrictAllowed && len(deployments) > 0 {
+		if restrictAllowed && len(aliases) > 0 {
 			// Both lists are present: model must be in allowedModels AND deployments
 			// AND the deployment alias must also be in allowedModels
 			matchedAllowedModel = findMatchingAllowedModel(allowedModels, model.ID)
-			deploymentValue, deploymentAlias = findDeploymentMatch(deployments, model.ID)
+			deploymentValue, deploymentAlias = findDeploymentMatch(aliases, model.ID)
 			inDeployments := deploymentAlias != ""
 
 			// Check if deployment alias is also in allowedModels (direct string match)
@@ -120,9 +120,9 @@ func (response *AzureListModelsResponse) ToBifrostListModelsResponse(allowedMode
 			// Only allowedModels is present: filter if model is not in allowedModels
 			matchedAllowedModel = findMatchingAllowedModel(allowedModels, model.ID)
 			shouldFilter = matchedAllowedModel == ""
-		} else if !unfiltered && len(deployments) > 0 {
+		} else if !unfiltered && len(aliases) > 0 {
 			// Only deployments is present: filter if model is not in deployments
-			deploymentValue, deploymentAlias = findDeploymentMatch(deployments, model.ID)
+			deploymentValue, deploymentAlias = findDeploymentMatch(aliases, model.ID)
 			shouldFilter = deploymentValue == ""
 		}
 		// If both are empty (or allowedModels is unrestricted and no deployments), shouldFilter remains false
@@ -150,7 +150,7 @@ func (response *AzureListModelsResponse) ToBifrostListModelsResponse(allowedMode
 		// Set deployment info if matched via deployments
 		if deploymentValue != "" && deploymentAlias != "" {
 			modelEntry.ID = string(schemas.Azure) + "/" + deploymentAlias
-			modelEntry.Deployment = schemas.Ptr(deploymentValue)
+			modelEntry.Alias = schemas.Ptr(deploymentValue)
 			includedModels[strings.ToLower(deploymentAlias)] = true
 		} else {
 			includedModels[strings.ToLower(modelID)] = true
@@ -160,8 +160,8 @@ func (response *AzureListModelsResponse) ToBifrostListModelsResponse(allowedMode
 	}
 
 	// Backfill deployments that were not matched from the API response
-	if !unfiltered && len(deployments) > 0 {
-		for alias, deploymentValue := range deployments {
+	if !unfiltered && len(aliases) > 0 {
+		for alias, deploymentValue := range aliases {
 			if includedModels[strings.ToLower(alias)] {
 				continue
 			}
@@ -173,9 +173,9 @@ func (response *AzureListModelsResponse) ToBifrostListModelsResponse(allowedMode
 				continue
 			}
 			bifrostResponse.Data = append(bifrostResponse.Data, schemas.Model{
-				ID:         string(schemas.Azure) + "/" + alias,
-				Name:       schemas.Ptr(alias),
-				Deployment: schemas.Ptr(deploymentValue),
+				ID:    string(schemas.Azure) + "/" + alias,
+				Name:  schemas.Ptr(alias),
+				Alias: schemas.Ptr(deploymentValue),
 			})
 			includedModels[strings.ToLower(alias)] = true
 		}

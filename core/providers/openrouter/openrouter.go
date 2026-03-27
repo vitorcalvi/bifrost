@@ -94,12 +94,12 @@ func (provider *OpenRouterProvider) validateKey(ctx *schemas.BifrostContext, key
 	// Check for auth errors (401, 403)
 	statusCode := resp.StatusCode()
 	if statusCode == fasthttp.StatusUnauthorized || statusCode == fasthttp.StatusForbidden {
-		return openai.ParseOpenAIError(resp, schemas.ListModelsRequest, provider.GetProviderKey(), "")
+		return openai.ParseOpenAIError(resp)
 	}
 
 	// Any 4xx/5xx error indicates the key might be invalid
 	if statusCode >= 400 {
-		return openai.ParseOpenAIError(resp, schemas.ListModelsRequest, provider.GetProviderKey(), "")
+		return openai.ParseOpenAIError(resp)
 	}
 
 	return nil
@@ -108,8 +108,6 @@ func (provider *OpenRouterProvider) validateKey(ctx *schemas.BifrostContext, key
 // listModelsByKey performs a list models request for a single key.
 // Returns the response and latency, or an error if the request fails.
 func (provider *OpenRouterProvider) listModelsByKey(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostListModelsRequest) (*schemas.BifrostListModelsResponse, *schemas.BifrostError) {
-	providerName := provider.GetProviderKey()
-
 	// Validate the key first using /v1/auth/key (only during provider add/update).
 	// OpenRouter's /v1/models doesn't require auth, so we need this extra check.
 	shouldValidate := false
@@ -157,7 +155,7 @@ func (provider *OpenRouterProvider) listModelsByKey(ctx *schemas.BifrostContext,
 			// Continue with empty response; allowed models will be backfilled below.
 			modelsFetched = false
 		} else {
-			bifrostErr := openai.ParseOpenAIError(resp, schemas.ListModelsRequest, providerName, "")
+			bifrostErr := openai.ParseOpenAIError(resp)
 			return nil, bifrostErr
 		}
 	}

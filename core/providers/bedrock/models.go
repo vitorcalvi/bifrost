@@ -172,9 +172,9 @@ func findMatchingAllowedModel(wl schemas.WhiteList, value string) string {
 // and also checks base model matches (ignoring version suffixes).
 // The modelID from the API response should match a deployment value (not the alias/key).
 // Returns the deployment value and alias if found, empty strings otherwise.
-func findDeploymentMatch(deployments map[string]string, modelID string) (deploymentValue, alias string) {
+func findDeploymentMatch(aliases map[string]string, modelID string) (deploymentValue, alias string) {
 	// Check if any deployment value matches the modelID (with or without prefix)
-	for aliasKey, deploymentValue := range deployments {
+	for aliasKey, deploymentValue := range aliases {
 		// Exact match
 		if deploymentValue == modelID || aliasKey == modelID {
 			return deploymentValue, aliasKey
@@ -248,7 +248,7 @@ func matchesBlacklist(bl schemas.BlackList, modelID string) bool {
 	return false
 }
 
-func (response *BedrockListModelsResponse) ToBifrostListModelsResponse(providerKey schemas.ModelProvider, allowedModels schemas.WhiteList, blacklistedModels schemas.BlackList, deployments map[string]string, unfiltered bool) *schemas.BifrostListModelsResponse {
+func (response *BedrockListModelsResponse) ToBifrostListModelsResponse(providerKey schemas.ModelProvider, allowedModels schemas.WhiteList, blacklistedModels schemas.BlackList, aliases map[string]string, unfiltered bool) *schemas.BifrostListModelsResponse {
 	if response == nil {
 		return nil
 	}
@@ -257,12 +257,12 @@ func (response *BedrockListModelsResponse) ToBifrostListModelsResponse(providerK
 		Data: make([]schemas.Model, 0, len(response.ModelSummaries)),
 	}
 
-	if !unfiltered && (allowedModels.IsEmpty() && len(deployments) == 0 || blacklistedModels.IsBlockAll()) {
+	if !unfiltered && (allowedModels.IsEmpty() && len(aliases) == 0 || blacklistedModels.IsBlockAll()) {
 		return bifrostResponse
 	}
 
-	deploymentValues := make([]string, 0, len(deployments))
-	for _, deployment := range deployments {
+	deploymentValues := make([]string, 0, len(aliases))
+	for _, deployment := range aliases {
 		deploymentValues = append(deploymentValues, deployment)
 	}
 
@@ -283,7 +283,7 @@ func (response *BedrockListModelsResponse) ToBifrostListModelsResponse(providerK
 			// Both lists are present: model must be in allowedModels AND deployments
 			// AND the deployment alias must also be in allowedModels
 			matchedAllowedModel = findMatchingAllowedModel(allowedModels, model.ModelID)
-			deploymentValue, deploymentAlias = findDeploymentMatch(deployments, model.ModelID)
+			deploymentValue, deploymentAlias = findDeploymentMatch(aliases, model.ModelID)
 			inDeployments := deploymentAlias != ""
 
 			// Check if deployment alias is also in allowedModels (direct string match)
@@ -300,7 +300,7 @@ func (response *BedrockListModelsResponse) ToBifrostListModelsResponse(providerK
 			shouldFilter = matchedAllowedModel == ""
 		} else if !unfiltered && len(deploymentValues) > 0 {
 			// Only deployments is present: filter if model is not in deployments
-			deploymentValue, deploymentAlias = findDeploymentMatch(deployments, model.ModelID)
+			deploymentValue, deploymentAlias = findDeploymentMatch(aliases, model.ModelID)
 			shouldFilter = deploymentValue == ""
 		}
 		// If both are empty (or allowedModels is unrestricted and no deployments), shouldFilter remains false
@@ -334,7 +334,7 @@ func (response *BedrockListModelsResponse) ToBifrostListModelsResponse(providerK
 		if deploymentValue != "" && deploymentAlias != "" {
 			modelEntry.ID = string(providerKey) + "/" + deploymentAlias
 			// Use the actual deployment value (which might have global prefix)
-			modelEntry.Deployment = schemas.Ptr(deploymentValue)
+			modelEntry.Alias = schemas.Ptr(deploymentValue)
 			includedModels[strings.ToLower(deploymentAlias)] = true
 		} else {
 			includedModels[strings.ToLower(modelID)] = true
@@ -343,8 +343,8 @@ func (response *BedrockListModelsResponse) ToBifrostListModelsResponse(providerK
 	}
 
 	// Backfill deployments that were not matched from the API response
-	if !unfiltered && len(deployments) > 0 {
-		for alias, deploymentValue := range deployments {
+	if !unfiltered && len(aliases) > 0 {
+		for alias, deploymentValue := range aliases {
 			if includedModels[strings.ToLower(alias)] {
 				continue
 			}
@@ -356,9 +356,9 @@ func (response *BedrockListModelsResponse) ToBifrostListModelsResponse(providerK
 				continue
 			}
 			bifrostResponse.Data = append(bifrostResponse.Data, schemas.Model{
-				ID:         string(providerKey) + "/" + alias,
-				Name:       schemas.Ptr(alias),
-				Deployment: schemas.Ptr(deploymentValue),
+				ID:    string(providerKey) + "/" + alias,
+				Name:  schemas.Ptr(alias),
+				Alias: schemas.Ptr(deploymentValue),
 			})
 			includedModels[strings.ToLower(alias)] = true
 		}

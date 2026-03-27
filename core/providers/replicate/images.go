@@ -191,9 +191,7 @@ func ToBifrostImageGenerationResponse(
 			Error: &schemas.ErrorField{
 				Message: "prediction response is nil",
 			},
-			ExtraFields: schemas.BifrostErrorExtraFields{
-				Provider: schemas.Replicate,
-			},
+			ExtraFields: schemas.BifrostErrorExtraFields{},
 		}
 	}
 

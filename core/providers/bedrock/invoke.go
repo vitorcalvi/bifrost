@@ -449,8 +449,8 @@ func ToBedrockInvokeMessagesResponse(ctx *schemas.BifrostContext, resp *schemas.
 	}
 
 	model := resp.Model
-	if resp.ExtraFields.ModelRequested != "" {
-		model = resp.ExtraFields.ModelRequested
+	if resp.ExtraFields.OriginalModelRequested != "" {
+		model = resp.ExtraFields.OriginalModelRequested
 	}
 
 	// Nova models: delegate to existing ToBedrockConverseResponse (Nova InvokeModel matches Converse format)
@@ -623,10 +623,10 @@ func ToBedrockInvokeMessagesStreamResponse(ctx *schemas.BifrostContext, resp *sc
 	// final Completed event). Without checking resp.ExtraFields, early chunks would
 	// have model="" and Nova streams would be mis-routed through the Anthropic path.
 	model := ""
-	if resp.ExtraFields.ModelRequested != "" {
-		model = resp.ExtraFields.ModelRequested
-	} else if resp.Response != nil && resp.Response.ExtraFields.ModelRequested != "" {
-		model = resp.Response.ExtraFields.ModelRequested
+	if resp.ExtraFields.OriginalModelRequested != "" {
+		model = resp.ExtraFields.OriginalModelRequested
+	} else if resp.Response != nil && resp.Response.ExtraFields.OriginalModelRequested != "" {
+		model = resp.Response.ExtraFields.OriginalModelRequested
 	} else if resp.Response != nil && resp.Response.Model != "" {
 		model = resp.Response.Model
 	}
@@ -666,8 +666,8 @@ func toAnthropicInvokeStreamBytes(resp *schemas.BifrostResponsesStreamResponse) 
 
 	switch resp.Type {
 	case schemas.ResponsesStreamResponseTypeCreated:
-		// message_start — use ExtraFields.ModelRequested as fallback for early chunks
-		model := resp.ExtraFields.ModelRequested
+		// message_start — use ExtraFields.OriginalModelRequested as fallback for early chunks
+		model := resp.ExtraFields.OriginalModelRequested
 		msgStart := map[string]interface{}{
 			"type": "message_start",
 			"message": map[string]interface{}{

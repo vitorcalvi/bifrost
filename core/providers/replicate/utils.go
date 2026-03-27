@@ -31,17 +31,13 @@ func checkForErrorStatus(prediction *ReplicatePredictionResponse) *schemas.Bifro
 		}
 		return providerUtils.NewBifrostOperationError(
 			"prediction failed",
-			fmt.Errorf("%s", errorMsg),
-			schemas.Replicate,
-		)
+			fmt.Errorf("%s", errorMsg))
 	}
 
 	if prediction.Status == ReplicatePredictionStatusCanceled {
 		return providerUtils.NewBifrostOperationError(
 			"prediction was canceled",
-			fmt.Errorf("prediction was canceled"),
-			schemas.Replicate,
-		)
+			fmt.Errorf("prediction was canceled"))
 	}
 
 	return nil
@@ -126,9 +122,9 @@ func listenToReplicateStreamURL(
 			}
 		}
 		if errors.Is(err, fasthttp.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, schemas.Replicate)
+			return nil, nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err)
 		}
-		return nil, nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderDoRequest, err, schemas.Replicate)
+		return nil, nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderDoRequest, err)
 	}
 
 	// Extract provider response headers before status check so error responses also forward them
@@ -180,11 +176,12 @@ func isVersionID(s string) bool {
 
 // resolveDeploymentModel checks if the model maps to a deployment.
 // Returns the resolved model and whether it is a deployment.
+// TODO: REMOVE THIS HANDLING
 func resolveDeploymentModel(model string, key schemas.Key) (string, bool) {
-	if key.ReplicateKeyConfig == nil || key.ReplicateKeyConfig.Deployments == nil {
+	if key.Aliases == nil {
 		return model, false
 	}
-	if deployment, ok := key.ReplicateKeyConfig.Deployments[model]; ok && deployment != "" {
+	if deployment, ok := key.Aliases[model]; ok && deployment != "" {
 		return deployment, true
 	}
 	return model, false
