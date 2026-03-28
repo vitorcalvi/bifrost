@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ModelMultiselect } from "@/components/ui/modelMultiselect";
 import { MultiSelect } from "@/components/ui/multiSelect";
+import MultiBudgetLines from "@/components/ui/multiBudgetLines";
 import NumberAndSelect from "@/components/ui/numberAndSelect";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DottedSeparator } from "@/components/ui/separator";
@@ -857,31 +858,24 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, onSave, 
 															<DottedSeparator />
 
 															{/* Provider Budget Configuration */}
-															<div className="space-y-4">
-																<Label className="text-sm font-medium">Provider Budget</Label>
-																<NumberAndSelect
-																	id={`providerBudget-${index}`}
-																	labelClassName="font-normal"
-																	label="Maximum Spend (USD)"
-																	value={config.budget?.max_limit || ""}
-																	selectValue={config.budget?.reset_duration || "1M"}
-																	onChangeNumber={(value) => {
-																		const currentBudget = config.budget || {};
+															<MultiBudgetLines
+																id={`providerBudget-${index}`}
+																label="Provider Budget"
+																lines={config.budget?.max_limit
+																	? [{ max_limit: config.budget.max_limit, reset_duration: config.budget.reset_duration || "1M" }]
+																	: (config.budgets || []).map((b: any) => ({ max_limit: b.max_limit || "", reset_duration: b.reset_duration || "1M" }))
+																}
+																onChange={(lines) => {
+																	if (lines.length === 0) {
+																		handleUpdateProviderConfig(index, "budget", undefined);
+																	} else {
 																		handleUpdateProviderConfig(index, "budget", {
-																			...currentBudget,
-																			max_limit: value,
+																			max_limit: lines[0].max_limit,
+																			reset_duration: lines[0].reset_duration,
 																		});
-																	}}
-																	onChangeSelect={(value) => {
-																		const currentBudget = config.budget || {};
-																		handleUpdateProviderConfig(index, "budget", {
-																			...currentBudget,
-																			reset_duration: value,
-																		});
-																	}}
-																	options={resetDurationOptions}
-																/>
-															</div>
+																	}
+																}}
+															/>
 
 															<DottedSeparator />
 

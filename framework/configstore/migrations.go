@@ -344,6 +344,12 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 	if err := migrationAddKeyBlacklistedModelsJSONColumn(ctx, db); err != nil {
 		return err
 	}
+	if err := migrationAddBudgetCalendarAlignedColumn(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddMultiBudgetTables(ctx, db); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -5304,6 +5310,111 @@ func migrationAddKeyBlacklistedModelsJSONColumn(ctx context.Context, db *gorm.DB
 	}})
 	if err := m.Migrate(); err != nil {
 		return fmt.Errorf("error running add_key_blacklisted_models_json_column migration: %s", err.Error())
+	}
+	return nil
+}
+
+// migrationAddBudgetCalendarAlignedColumn adds the calendar_aligned column to the governance_budgets table.
+func migrationAddBudgetCalendarAlignedColumn(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_budget_calendar_aligned_column",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if !mg.HasColumn(&tables.TableBudget{}, "calendar_aligned") {
+				if err := mg.AddColumn(&tables.TableBudget{}, "calendar_aligned"); err != nil {
+					return fmt.Errorf("failed to add calendar_aligned column: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if mg.HasColumn(&tables.TableBudget{}, "calendar_aligned") {
+				if err := mg.DropColumn(&tables.TableBudget{}, "calendar_aligned"); err != nil {
+					return fmt.Errorf("failed to drop calendar_aligned column: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_budget_calendar_aligned_column migration: %s", err.Error())
+	}
+	return nil
+}
+
+// migrationAddMultiBudgetTables creates junction tables for multi-budget support and backfills existing data.
+func migrationAddMultiBudgetTables(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_multi_budget_tables",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+
+			// Create VK-level multi-budget junction table
+			if !mg.HasTable(&tables.TableVirtualKeyBudget{}) {
+				if err := mg.CreateTable(&tables.TableVirtualKeyBudget{}); err != nil {
+					return fmt.Errorf("failed to create governance_virtual_key_budgets table: %w", err)
+				}
+			}
+
+			// Create provider-config-level multi-budget junction table
+			if !mg.HasTable(&tables.TableVirtualKeyProviderConfigBudget{}) {
+				if err := mg.CreateTable(&tables.TableVirtualKeyProviderConfigBudget{}); err != nil {
+					return fmt.Errorf("failed to create governance_virtual_key_provider_config_budgets table: %w", err)
+				}
+			}
+
+			// Backfill: migrate existing VK single budgets to junction table
+			if err := tx.Exec(`
+				INSERT INTO governance_virtual_key_budgets (virtual_key_id, budget_id)
+				SELECT id, budget_id FROM governance_virtual_keys
+				WHERE budget_id IS NOT NULL AND budget_id != ''
+				AND NOT EXISTS (
+					SELECT 1 FROM governance_virtual_key_budgets
+					WHERE governance_virtual_key_budgets.virtual_key_id = governance_virtual_keys.id
+					AND governance_virtual_key_budgets.budget_id = governance_virtual_keys.budget_id
+				)
+			`).Error; err != nil {
+				return fmt.Errorf("failed to backfill VK budgets: %w", err)
+			}
+
+			// Backfill: migrate existing provider config single budgets to junction table
+			if err := tx.Exec(`
+				INSERT INTO governance_virtual_key_provider_config_budgets (provider_config_id, budget_id)
+				SELECT id, budget_id FROM governance_virtual_key_provider_configs
+				WHERE budget_id IS NOT NULL AND budget_id != ''
+				AND NOT EXISTS (
+					SELECT 1 FROM governance_virtual_key_provider_config_budgets
+					WHERE governance_virtual_key_provider_config_budgets.provider_config_id = governance_virtual_key_provider_configs.id
+					AND governance_virtual_key_provider_config_budgets.budget_id = governance_virtual_key_provider_configs.budget_id
+				)
+			`).Error; err != nil {
+				return fmt.Errorf("failed to backfill provider config budgets: %w", err)
+			}
+
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if mg.HasTable(&tables.TableVirtualKeyProviderConfigBudget{}) {
+				if err := mg.DropTable(&tables.TableVirtualKeyProviderConfigBudget{}); err != nil {
+					return err
+				}
+			}
+			if mg.HasTable(&tables.TableVirtualKeyBudget{}) {
+				if err := mg.DropTable(&tables.TableVirtualKeyBudget{}); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_multi_budget_tables migration: %s", err.Error())
 	}
 	return nil
 }

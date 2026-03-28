@@ -157,6 +157,7 @@ export interface CreateVirtualKeyRequest {
 	team_id?: string;
 	customer_id?: string;
 	budget?: CreateBudgetRequest;
+	budgets?: CreateBudgetRequest[];
 	rate_limit?: CreateRateLimitRequest;
 	is_active?: boolean;
 }
@@ -169,6 +170,7 @@ export interface UpdateVirtualKeyRequest {
 	team_id?: string;
 	customer_id?: string;
 	budget?: UpdateBudgetRequest;
+	budgets?: CreateBudgetRequest[];
 	rate_limit?: UpdateRateLimitRequest;
 	is_active?: boolean;
 }
