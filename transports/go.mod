@@ -166,3 +166,15 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.6.0 // indirect
 )
+
+replace (
+	github.com/maximhq/bifrost/core => ../core
+	github.com/maximhq/bifrost/framework => ../framework
+	github.com/maximhq/bifrost/plugins/governance => ../plugins/governance
+	github.com/maximhq/bifrost/plugins/litellmcompat => ../plugins/litellmcompat
+	github.com/maximhq/bifrost/plugins/logging => ../plugins/logging
+	github.com/maximhq/bifrost/plugins/maxim => ../plugins/maxim
+	github.com/maximhq/bifrost/plugins/otel => ../plugins/otel
+	github.com/maximhq/bifrost/plugins/semanticcache => ../plugins/semanticcache
+	github.com/maximhq/bifrost/plugins/telemetry => ../plugins/telemetry
+)

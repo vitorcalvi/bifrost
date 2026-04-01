@@ -24,12 +24,16 @@ RUN apk add --no-cache gcc musl-dev sqlite-dev binutils binutils-gold
 # Set environment for CGO-enabled build (required for go-sqlite3)
 ENV CGO_ENABLED=1 GOOS=linux
 
+# Copy local monorepo modules (needed by replace directives in go.mod)
+COPY core/ /app/core/
+COPY framework/ /app/framework/
+COPY plugins/ /app/plugins/
+
+# Copy go.mod/go.sum first for layer caching
 COPY transports/go.mod transports/go.sum ./
-RUN ls
-RUN cat go.mod
 RUN go mod download
 
-# Copy source code and dependencies
+# Copy transports source code
 COPY transports/ ./
 
 COPY --from=ui-builder /app/out ./bifrost-http/ui
