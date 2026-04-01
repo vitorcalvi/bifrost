@@ -25,9 +25,10 @@ RUN apk add --no-cache gcc musl-dev sqlite-dev binutils binutils-gold
 ENV CGO_ENABLED=1 GOOS=linux
 
 # Copy local monorepo modules (needed by replace directives in go.mod)
-COPY core/ /app/core/
-COPY framework/ /app/framework/
-COPY plugins/ /app/plugins/
+# go.mod is at /app/go.mod, replace directives use ../core => /core
+COPY core/ /core/
+COPY framework/ /framework/
+COPY plugins/ /plugins/
 
 # Copy go.mod/go.sum first for layer caching
 COPY transports/go.mod transports/go.sum ./
